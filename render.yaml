@@ -1,19 +1,14 @@
-# render.yaml - Render deployment configuration for backend
-# Deploy this file in your repository root
-
 services:
   - type: web
-    name: family-companion-ai-backend
+    name: family-companion-ai
     env: python
-    region: oregon
     plan: free
-    rootDir: backend
-    buildCommand: "pip install -r requirements.txt"
-    startCommand: "uvicorn main:app --host 0.0.0.0 --port $PORT"
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: uvicorn backend.main:app --host 0.0.0.0 --port 10000
     envVars:
-      - key: OPENAI_API_KEY
-        sync: false  # Set manually in Render dashboard
-      - key: OPENAI_MODEL
-        value: gpt-4o-mini
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: GEMINI_API_KEY
+        sync: false
       - key: DATABASE_URL
         value: family_companion.db
