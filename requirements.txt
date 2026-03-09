@@ -1,6 +1,19 @@
 fastapi==0.115.5
 uvicorn[standard]==0.32.1
 openai==1.57.0
+google-genai==0.8.0
 pydantic==2.10.3
 python-dotenv==1.0.1
 python-multipart==0.0.19
+
+# ── VOICE UPGRADES ────────────────────────
+# Whisper STT — replaces Web Speech API
+openai-whisper==20231117
+torch==2.3.0
+torchaudio==2.3.0
+soundfile==0.12.1
+numpy==1.26.4
+noisereduce==3.0.2
+
+# ElevenLabs TTS — replaces browser speechSynthesis
+elevenlabs==1.9.0

@@ -6,37 +6,39 @@ from typing import Optional, List
 from datetime import datetime
 from enum import Enum
 
-
 class RelationType(str, Enum):
     mother = "mother"
     father = "father"
     brother = "brother"
     sister = "sister"
 
-
 class CreateUserRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=100, description="User's name")
-
 
 class UserResponse(BaseModel):
     id: int
     name: str
     created_at: str
 
-
 class ChatRequest(BaseModel):
     user_id: Optional[int] = None
     relation_type: RelationType
     message: str = Field(..., min_length=1, max_length=2000)
-    conversation_history: Optional[List[dict]] = []  # For context memory
+    language: Optional[str] = "en"
+    conversation_history: Optional[List[dict]] = []
 
+class StreamChatRequest(BaseModel):
+    user_id: Optional[int] = None
+    relation_type: RelationType
+    message: str = Field(..., min_length=1, max_length=2000)
+    language: Optional[str] = "en"
+    conversation_history: Optional[List[dict]] = []
 
 class ChatResponse(BaseModel):
     response: str
     emotion_detected: str
     relation_type: str
     timestamp: str
-
 
 class ConversationRecord(BaseModel):
     id: int
@@ -47,7 +49,16 @@ class ConversationRecord(BaseModel):
     emotion: str
     timestamp: str
 
-
 class HistoryResponse(BaseModel):
     conversations: List[ConversationRecord]
     total: int
+
+class STTResponse(BaseModel):
+    text: str
+    language: str
+    confidence: float
+
+class TTSRequest(BaseModel):
+    text: str
+    relation_type: RelationType
+    emotion: Optional[str] = "neutral"

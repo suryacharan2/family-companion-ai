@@ -1,55 +1,38 @@
-"""
-Family Companion AI - FastAPI Backend
-Main entry point for the application
-"""
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from contextlib import asynccontextmanager
 from database import init_db
 from routes.chat import router as chat_router
+from routes.voice import router as voice_router
+from routes.auth import router as auth_router
 from routes.history import router as history_router
-from routes.users import router as users_router
+from routes.voice_profile import router as voice_profile_router
+from routes.avatar import router as avatar_router
+from routes.memory import router as memory_router
+from routes.generate_video import router as video_router
 
+app = FastAPI(title="AI Family Companion", version="2.0.0")
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """Initialize database on startup"""
-    init_db()
-    yield
-
-
-app = FastAPI(
-    title="Family Companion AI",
-    description="An emotional AI chatbot that simulates family relationships",
-    version="1.0.0",
-    lifespan=lifespan
-)
-
-# CORS configuration - allow frontend origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://localhost:5173",
-        "https://*.vercel.app",
-        "*"  # Remove in strict production; use specific origins
-    ],
+    allow_origins=["http://localhost:3000", "http://localhost:5173"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Register routers
-app.include_router(users_router, prefix="/api", tags=["users"])
-app.include_router(chat_router, prefix="/api", tags=["chat"])
-app.include_router(history_router, prefix="/api", tags=["history"])
+@app.on_event("startup")
+async def startup():
+    init_db()
 
+app.include_router(auth_router)
+app.include_router(chat_router)
+app.include_router(voice_router)
+app.include_router(history_router)
+app.include_router(voice_profile_router)
+app.include_router(avatar_router)
+app.include_router(memory_router)
+app.include_router(video_router)
 
 @app.get("/")
-async def root():
-    return {"message": "Family Companion AI API is running 💚", "version": "1.0.0"}
-
-
-@app.get("/health")
-async def health_check():
-    return {"status": "healthy"}
+def root():
+    return {"status": "AI Family Companion API v2.0 running"}

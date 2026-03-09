@@ -1,59 +1,43 @@
-"""
-routes/history.py - Chat history endpoint
-"""
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Depends
 from typing import Optional
-from schemas import HistoryResponse, ConversationRecord
-from database import get_connection
+from sqlalchemy.orm import Session
+from database import get_db, Message
 
 router = APIRouter()
 
-
-@router.get("/history", response_model=HistoryResponse)
-async def get_history(
-    user_id: Optional[int] = Query(None, description="Filter by user ID"),
-    relation_type: Optional[str] = Query(None, description="Filter by relation type"),
+@router.get("/api/history")
+def get_history(
+    user_id: Optional[int] = Query(None),
+    relation_type: Optional[str] = Query(None),
     limit: int = Query(50, ge=1, le=200),
-    offset: int = Query(0, ge=0)
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db)
 ):
-    """Retrieve conversation history with optional filters"""
-    conn = get_connection()
-    cursor = conn.cursor()
-
-    # Build dynamic query
-    query = "SELECT * FROM conversations WHERE 1=1"
-    params = []
-
+    query = db.query(Message).filter(Message.role == "user")
     if user_id:
-        query += " AND user_id = ?"
-        params.append(user_id)
+        query = query.filter(Message.user_id == user_id)
     if relation_type:
-        query += " AND relation_type = ?"
-        params.append(relation_type)
+        query = query.filter(Message.relation_type == relation_type)
 
-    # Count total
-    count_query = query.replace("SELECT *", "SELECT COUNT(*)")
-    cursor.execute(count_query, params)
-    total = cursor.fetchone()[0]
+    total = query.count()
+    user_msgs = query.order_by(Message.created_at.desc()).offset(offset).limit(limit).all()
 
-    # Fetch paginated results
-    query += " ORDER BY timestamp DESC LIMIT ? OFFSET ?"
-    params.extend([limit, offset])
-    cursor.execute(query, params)
-    rows = cursor.fetchall()
-    conn.close()
+    conversations = []
+    for um in user_msgs:
+        reply = db.query(Message).filter(
+            Message.relation_type == um.relation_type,
+            Message.role == "assistant",
+            Message.created_at >= um.created_at
+        ).order_by(Message.created_at.asc()).first()
 
-    conversations = [
-        ConversationRecord(
-            id=row["id"],
-            user_id=row["user_id"],
-            relation_type=row["relation_type"],
-            message=row["message"],
-            response=row["response"],
-            emotion=row["emotion"] or "neutral",
-            timestamp=row["timestamp"]
-        )
-        for row in rows
-    ]
+        conversations.append({
+            "id": um.id,
+            "user_id": um.user_id,
+            "relation_type": um.relation_type,
+            "message": um.content,
+            "response": reply.content if reply else "",
+            "emotion": reply.emotion if reply else "neutral",
+            "timestamp": um.created_at.isoformat() if um.created_at else "",
+        })
 
-    return HistoryResponse(conversations=conversations, total=total)
+    return {"conversations": conversations, "total": total}

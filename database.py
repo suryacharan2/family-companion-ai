@@ -1,48 +1,84 @@
-"""
-database.py - SQLite database initialization and session management
-"""
-import sqlite3
+from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime, ForeignKey, Float
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker, relationship
+from datetime import datetime
 import os
-from pathlib import Path
 
-DB_PATH = os.getenv("DATABASE_URL", "family_companion.db")
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./companion.db")
+engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
 
 
-def get_connection():
-    """Get a database connection with row factory for dict-like access"""
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+class User(Base):
+    __tablename__ = "users"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    email = Column(String, unique=True, index=True, nullable=False)
+    hashed_password = Column(String, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    messages = relationship("Message", back_populates="user", cascade="all, delete")
+    memories = relationship("LongTermMemory", back_populates="user", cascade="all, delete")
+    voice_profiles = relationship("VoiceProfile", back_populates="user", cascade="all, delete")
+    avatar_profiles = relationship("AvatarProfile", back_populates="user", cascade="all, delete")
+
+
+class VoiceProfile(Base):
+    __tablename__ = "voice_profiles"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    relation_type = Column(String, nullable=False)
+    voice_id = Column(String, nullable=False)
+    voice_name = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow)
+    user = relationship("User", back_populates="voice_profiles")
+
+
+class AvatarProfile(Base):
+    __tablename__ = "avatar_profiles"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    relation_type = Column(String, nullable=False)
+    image_url = Column(String, nullable=False)
+    local_filename = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow)
+    user = relationship("User", back_populates="avatar_profiles")
+
+
+class Message(Base):
+    __tablename__ = "messages"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    relation_type = Column(String, nullable=False)
+    role = Column(String, nullable=False)
+    content = Column(Text, nullable=False)
+    emotion = Column(String, default="neutral")
+    created_at = Column(DateTime, default=datetime.utcnow)
+    user = relationship("User", back_populates="messages")
+
+
+class LongTermMemory(Base):
+    __tablename__ = "long_term_memory"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    relation_type = Column(String, nullable=False)
+    fact_key = Column(String, nullable=False)
+    fact_value = Column(Text, nullable=False)
+    confidence = Column(Float, default=1.0)
+    last_updated = Column(DateTime, default=datetime.utcnow)
+    user = relationship("User", back_populates="memories")
+
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 
 def init_db():
-    """Initialize database tables"""
-    conn = get_connection()
-    cursor = conn.cursor()
-
-    # Users table
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-
-    # Conversations table - stores full chat history
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS conversations (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER,
-            relation_type TEXT NOT NULL CHECK(relation_type IN ('mother','father','brother','sister')),
-            message TEXT NOT NULL,
-            response TEXT NOT NULL,
-            emotion TEXT DEFAULT 'neutral',
-            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users(id)
-        )
-    """)
-
-    conn.commit()
-    conn.close()
+    Base.metadata.create_all(bind=engine)
     print("✅ Database initialized successfully")
