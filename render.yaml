@@ -1,28 +1,24 @@
-<<<<<<< HEAD
-services:
-  - type: web
-    name: family-companion-ai
-    env: python
-    plan: free
-    buildCommand: pip install -r backend/requirements.txt
-    startCommand: uvicorn backend.main:app --host 0.0.0.0 --port 10000
-    envVars:
-      - key: PYTHON_VERSION
-        value: 3.11.9
-      - key: GEMINI_API_KEY
-        sync: false
-=======
 # render.yaml
 services:
   - type: web
     name: family-companion-backend
     env: python
-    pythonVersion: "3.11"
+    region: oregon
+    plan: free
     buildCommand: pip install -r backend/requirements.txt
-    startCommand: uvicorn backend.main:app --host 0.0.0.0 --port 10000
+    startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT
+    autoDeploy: true
     envVars:
-      - key: GEMINI_API_KEY
-        fromDatabase: true
->>>>>>> 8042217 (Fix Render build command for backend folder)
+      - key: OPENAI_API_KEY
+        fromSecret: OPENAI_API_KEY
       - key: DATABASE_URL
-        fromDatabase: true
+        fromSecret: DATABASE_URL
+
+  - type: web
+    name: family-companion-frontend
+    env: static
+    region: oregon
+    plan: free
+    buildCommand: cd frontend && npm install && npm run build
+    startCommand: serve -s frontend/dist -l $PORT
+    autoDeploy: true
